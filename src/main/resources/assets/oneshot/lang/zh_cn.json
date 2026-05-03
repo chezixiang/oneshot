@@ -1,0 +1,8 @@
+{
+  "enchantment.oneshot.armor_level": "护甲等级",
+  "item.oneshot.quick_repair_kit": "快捷维修包",
+  "message.oneshot.no_damaged_armor": "没有需要修理的护甲！",
+  "message.oneshot.armor_full": "你的护甲已经是满耐久状态！",
+  "message.oneshot.armor_repaired": "护甲修理成功！",
+  "tooltip.oneshot.quick_repair_kit": "右键使用：恢复50%%耐久，永久消耗最大耐久的%s"
+}

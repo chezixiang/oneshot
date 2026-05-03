@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "taczaddon:item/quick_repair_kit"
+  }
+}

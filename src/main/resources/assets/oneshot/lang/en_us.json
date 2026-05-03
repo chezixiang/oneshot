@@ -1,0 +1,9 @@
+{
+  "enchantment.oneshot.armor_level": "Armor Level",
+  "item.oneshot.quick_repair_kit": "Quick Repair Kit",
+  "message.oneshot.no_damaged_armor": "No damaged armor to repair!",
+  "message.oneshot.armor_full": "Your armor is already at full durability!",
+  "message.oneshot.armor_repaired": "Armor repaired successfully!",
+  "tooltip.oneshot.quick_repair_kit": "Right-click: Restore 50%% durability, permanently lose %s of max durability",
+  "config.oneshot.bullet_level": "Bullet Level: %s"
+}

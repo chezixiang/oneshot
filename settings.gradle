@@ -1,0 +1,15 @@
+pluginManagement {
+    repositories {
+        maven { name = 'Aliyun Maven'; url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { name = 'Tencent Maven'; url = 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        gradlePluginPortal()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
