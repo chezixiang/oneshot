@@ -93,19 +93,19 @@ public final class ModConfig {
 
             armor_durability_damage_base = builder
                     .comment("Armor durability damage multiplier when bullet level == armor level")
-                    .defineInRange("ArmorDurabilityDamageBase", 1.0, 0.0, 10.0);
+                    .defineInRange("ArmorDurabilityDamageBase", 2.5, 0.0, 10.0);
 
             armor_durability_damage_plus1 = builder
                     .comment("Armor durability damage multiplier when bullet level = armor level + 1")
-                    .defineInRange("ArmorDurabilityDamagePlus1", 1.1, 0.0, 10.0);
+                    .defineInRange("ArmorDurabilityDamagePlus1", 3.0, 0.0, 10.0);
 
             armor_durability_damage_plus2 = builder
                     .comment("Armor durability damage multiplier when bullet level = armor level + 2")
-                    .defineInRange("ArmorDurabilityDamagePlus2", 1.5, 0.0, 10.0);
+                    .defineInRange("ArmorDurabilityDamagePlus2", 4.0, 0.0, 10.0);
 
             armor_durability_damage_plus3 = builder
                     .comment("Armor durability damage multiplier when bullet level >= armor level + 3")
-                    .defineInRange("ArmorDurabilityDamagePlus3", 2.1, 0.0, 10.0);
+                    .defineInRange("ArmorDurabilityDamagePlus3", 5.5, 0.0, 10.0);
 
             builder.pop();
 
@@ -185,6 +185,12 @@ public final class ModConfig {
             return java.util.Collections.singletonList(level);
         }
         if (bullet_json != null && bullet_json.has("level")) {
+            if (bullet_json.get("level").isJsonArray()) {
+                return new com.google.gson.Gson().fromJson(
+                        bullet_json.get("level"),
+                        new com.google.gson.reflect.TypeToken<List<Integer>>() {}.getType()
+                );
+            }
             int level = bullet_json.get("level").getAsInt();
             level = Math.max(1, Math.min(7, level));
             return java.util.Collections.singletonList(level);

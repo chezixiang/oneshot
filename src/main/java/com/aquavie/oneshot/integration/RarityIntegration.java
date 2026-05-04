@@ -55,6 +55,7 @@ public final class RarityIntegration {
         if (item_rarity_loaded) {
             OneShotMod.LOGGER.info("Item-Rarity (万象棱镜) detected, enabling rarity integration");
             register_oneshot_resource_location_getter();
+            try_register_item_rarity_grades_immediate();
         }
     }
 
@@ -121,19 +122,49 @@ public final class RarityIntegration {
         return item_rarity_loaded;
     }
 
-    public static void try_register_item_rarity_grades() {
+    public static boolean try_register_item_rarity_grades() {
         if (!item_rarity_loaded || item_rarity_grades_registered) {
-            return;
+            return false;
         }
         try {
             if (!is_item_rarity_initialized()) {
-                return;
+                return false;
             }
             register_oneshot_rarity_grades();
             item_rarity_grades_registered = true;
             OneShotMod.LOGGER.info("Item-Rarity (万象棱镜) oneshot grades registered");
+            return true;
         } catch (Exception e) {
             OneShotMod.LOGGER.warn("Failed to register Item-Rarity grades: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private static int immediate_register_retry_count = 0;
+    private static final int MAX_IMMEDIATE_RETRIES = 10;
+
+    public static void try_register_item_rarity_grades_immediate() {
+        if (!item_rarity_loaded || item_rarity_grades_registered) {
+            return;
+        }
+        if (immediate_register_retry_count >= MAX_IMMEDIATE_RETRIES) {
+            return;
+        }
+        try {
+            if (!is_item_rarity_initialized()) {
+                immediate_register_retry_count++;
+                OneShotMod.LOGGER.debug("Item-Rarity not initialized yet, retry {}/{}", 
+                        immediate_register_retry_count, MAX_IMMEDIATE_RETRIES);
+                return;
+            }
+            register_oneshot_rarity_grades();
+            item_rarity_grades_registered = true;
+            immediate_register_retry_count = MAX_IMMEDIATE_RETRIES;
+            OneShotMod.LOGGER.info("Item-Rarity (万象棱镜) oneshot grades registered immediately");
+        } catch (Exception e) {
+            immediate_register_retry_count++;
+            OneShotMod.LOGGER.warn("Immediate Item-Rarity grade registration attempt {} failed: {}", 
+                    immediate_register_retry_count, e.getMessage());
         }
     }
 
