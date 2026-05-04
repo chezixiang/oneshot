@@ -150,6 +150,14 @@ public final class ModConfig {
             int level = bullet_json.get("BulletLevel").getAsInt();
             return Math.max(1, Math.min(7, level));
         }
+        if (bullet_json != null && bullet_json.has("Level")) {
+            int level = bullet_json.get("Level").getAsInt();
+            return Math.max(1, Math.min(7, level));
+        }
+        if (bullet_json != null && bullet_json.has("level")) {
+            int level = bullet_json.get("level").getAsInt();
+            return Math.max(1, Math.min(7, level));
+        }
         return COMMON.default_bullet_level.get();
     }
 
@@ -162,6 +170,22 @@ public final class ModConfig {
         }
         if (bullet_json != null && bullet_json.has("BulletLevel")) {
             int level = bullet_json.get("BulletLevel").getAsInt();
+            level = Math.max(1, Math.min(7, level));
+            return java.util.Collections.singletonList(level);
+        }
+        if (bullet_json != null && bullet_json.has("Levels")) {
+            return new com.google.gson.Gson().fromJson(
+                    bullet_json.get("Levels"),
+                    new com.google.gson.reflect.TypeToken<List<Integer>>() {}.getType()
+            );
+        }
+        if (bullet_json != null && bullet_json.has("Level")) {
+            int level = bullet_json.get("Level").getAsInt();
+            level = Math.max(1, Math.min(7, level));
+            return java.util.Collections.singletonList(level);
+        }
+        if (bullet_json != null && bullet_json.has("level")) {
+            int level = bullet_json.get("level").getAsInt();
             level = Math.max(1, Math.min(7, level));
             return java.util.Collections.singletonList(level);
         }

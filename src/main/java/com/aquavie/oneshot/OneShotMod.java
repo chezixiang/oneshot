@@ -1,6 +1,7 @@
 package com.aquavie.oneshot;
 
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
+import com.aquavie.oneshot.bullet.BulletLevelReloadListener;
 import com.aquavie.oneshot.client.BulletLevelIndicator;
 import com.aquavie.oneshot.command.SetAmmoGradeCommand;
 import com.aquavie.oneshot.config.ModConfig;
@@ -59,6 +60,7 @@ public final class OneShotMod {
 
         MinecraftForge.EVENT_BUS.register(new ModEventHandler());
         MinecraftForge.EVENT_BUS.register(new BulletLevelHandler());
+        MinecraftForge.EVENT_BUS.register(new BulletLevelReloadListener());
     }
 
     private void on_common_setup(FMLCommonSetupEvent event) {

@@ -7,11 +7,17 @@ bin
 .project
 
 # idea
+
 out
 *.ipr
 *.iws
 *.iml
 .idea
+
+# IDE
+.vscode
+.trae
+.vs
 
 # gradle
 build
@@ -28,4 +34,4 @@ TACZ-1.1.7-hotfix2
 bug
 libs
 libs-maven
-Item-Rarity-master
+other_codes

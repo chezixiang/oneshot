@@ -5,6 +5,7 @@ import com.aquavie.oneshot.integration.RarityIntegration;
 import com.aquavie.oneshot.network.BulletLevelUtil;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IGun;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -19,6 +20,13 @@ public final class BulletLevelHandler {
 
     private static final Set<String> AMMO_ITEM_IDS = new HashSet<>();
     private static final int TICK_SCAN_INTERVAL = 40;
+
+    private static final EquipmentSlot[] ARMOR_SLOTS = {
+            EquipmentSlot.HEAD,
+            EquipmentSlot.CHEST,
+            EquipmentSlot.LEGS,
+            EquipmentSlot.FEET
+    };
 
     static {
         AMMO_ITEM_IDS.add("tacz:rifle_ammo");
@@ -64,6 +72,9 @@ public final class BulletLevelHandler {
             return;
         }
         Player player = event.player;
+
+        RarityIntegration.try_register_item_rarity_grades();
+
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!is_tacz_ammo(stack) || stack.isEmpty()) {
@@ -73,6 +84,15 @@ public final class BulletLevelHandler {
                 BulletLevelUtil.set_bullet_level(stack, ModConfig.COMMON.default_bullet_level.get());
                 if (RarityIntegration.is_rarity_mod_loaded()) {
                     RarityIntegration.apply_rarity_to_bullet(stack);
+                }
+            }
+        }
+
+        if (RarityIntegration.is_rarity_mod_loaded()) {
+            for (EquipmentSlot slot : ARMOR_SLOTS) {
+                ItemStack armor_stack = player.getItemBySlot(slot);
+                if (!armor_stack.isEmpty() && RarityIntegration.has_armor_level_enchantment(armor_stack)) {
+                    RarityIntegration.apply_rarity_to_armor(armor_stack);
                 }
             }
         }

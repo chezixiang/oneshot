@@ -5,6 +5,7 @@ import com.aquavie.oneshot.bullet.BulletLevelHandler;
 import com.aquavie.oneshot.config.ModConfig;
 import com.aquavie.oneshot.network.BulletLevelUtil;
 import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.util.AttachmentDataUtils;
 import net.minecraft.nbt.CompoundTag;
 import com.tacz.guns.api.event.common.GunFireEvent;
 import com.tacz.guns.api.event.common.GunReloadEvent;
@@ -65,41 +66,43 @@ public final class ModEventHandler {
         Deque<Integer> queue = PLAYER_BULLET_QUEUES.computeIfAbsent(
                 player.getUUID(), k -> new ArrayDeque<>());
 
-        List<Integer> new_levels = BulletLevelHandler.determine_bullet_levels_for_gun(player, gun_stack);
-
-        if (current_ammo > 0 && !queue.isEmpty()) {
-            while (queue.size() > current_ammo) {
-                queue.pollLast();
+        // 完全重写队列：先保留当前枪膛内的子弹（若存在）
+        queue.clear();
+        if (current_ammo > 0) {
+            // 如果枪上已有等级，优先用该等级填充枪膛内子弹
+            int existing_display_level = BulletLevelUtil.get_bullet_level(gun_stack);
+            int fill_level = existing_display_level > 0 ? existing_display_level : ModConfig.COMMON.default_bullet_level.get();
+            for (int i = 0; i < current_ammo; i++) {
+                queue.addLast(fill_level);
             }
-            while (queue.size() < current_ammo) {
-                queue.addLast(ModConfig.COMMON.default_bullet_level.get());
-            }
-        } else if (current_ammo <= 0) {
-            queue.clear();
         }
 
+        // 从背包补充新子弹
+        List<Integer> new_levels = BulletLevelHandler.determine_bullet_levels_for_gun(player, gun_stack);
         int added = 0;
         for (int level : new_levels) {
-            if (added >= needed) {
+            if (queue.size() >= max_ammo) {
                 break;
             }
             queue.addLast(level);
             added++;
         }
 
+        // 更新枪 NBT
         int display_level = queue.isEmpty()
                 ? ModConfig.COMMON.default_bullet_level.get()
                 : queue.peekFirst();
         BulletLevelUtil.set_bullet_level(gun_stack, display_level);
 
+        // 检测混合等级
         boolean has_mixed = false;
-        int first = -1;
-        for (int lv : queue) {
-            if (first == -1) {
-                first = lv;
-            } else if (lv != first) {
-                has_mixed = true;
-                break;
+        if (queue.size() > 1) {
+            int first = queue.peekFirst();
+            for (int lv : queue) {
+                if (lv != first) {
+                    has_mixed = true;
+                    break;
+                }
             }
         }
         if (has_mixed) {
@@ -111,8 +114,8 @@ public final class ModEventHandler {
             }
         }
 
-        OneShotMod.LOGGER.debug("Reload: gun={}, cur={}, max={}, queue={}, display={}",
-                iGun.getGunId(gun_stack), current_ammo, max_ammo, queue.size(), display_level);
+        OneShotMod.LOGGER.debug("Reload: gun={}, cur={}, max={}, queue={}, added={}, display={}, mixed={}",
+                iGun.getGunId(gun_stack), current_ammo, max_ammo, queue.size(), added, display_level, has_mixed);
     }
 
     @SubscribeEvent
@@ -140,6 +143,7 @@ public final class ModEventHandler {
                 : ModConfig.COMMON.default_bullet_level.get();
         BulletLevelUtil.set_bullet_level(gun_stack, next_level);
 
+        // 更新混合标志
         boolean has_mixed = false;
         if (queue != null && queue.size() > 1) {
             int first = queue.peekFirst();
@@ -335,7 +339,7 @@ public final class ModEventHandler {
         if (index.isEmpty()) {
             return -1;
         }
-        return index.get().getGunData().getAmmoAmount();
+        return AttachmentDataUtils.getAmmoCountWithAttachment(gun_stack, index.get().getGunData());
     }
 
     private int get_attacker_bullet_level(Player attacker) {
