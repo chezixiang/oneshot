@@ -65,13 +65,14 @@ repositories {
         }
     }
     maven {
-        name = 'TACZ / GeckoLib'
-        url = 'https://dl.cloudsmith.io/public/timm/geckolib/'
+        name = 'LocalTACZ'
+        url = uri("file://${project.projectDir}/libs-maven")
     }
 }
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation fg.deobf("com.tacz:tacz:1.1.7-hotfix2")
 }
 
 tasks.named('processResources', ProcessResources).configure {

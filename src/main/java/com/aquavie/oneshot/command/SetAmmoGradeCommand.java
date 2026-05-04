@@ -1,6 +1,7 @@
 package com.aquavie.oneshot.command;
 
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
+import com.aquavie.oneshot.integration.RarityIntegration;
 import com.aquavie.oneshot.network.BulletLevelUtil;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -39,6 +40,11 @@ public final class SetAmmoGradeCommand {
                                     }
 
                                     BulletLevelUtil.set_bullet_level(held, level);
+
+                                    if (RarityIntegration.is_rarity_mod_loaded()) {
+                                        RarityIntegration.apply_rarity_to_bullet(held);
+                                    }
+
                                     source.sendSuccess(
                                             () -> Component.literal("Set ammo grade to Lv."
                                                     + level), true);

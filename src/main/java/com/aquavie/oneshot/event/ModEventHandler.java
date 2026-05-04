@@ -4,6 +4,13 @@ import com.aquavie.oneshot.OneShotMod;
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
 import com.aquavie.oneshot.config.ModConfig;
 import com.aquavie.oneshot.network.BulletLevelUtil;
+import com.tacz.guns.api.TimelessAPI;
+import net.minecraft.nbt.CompoundTag;
+import com.tacz.guns.api.event.common.GunFireEvent;
+import com.tacz.guns.api.event.common.GunReloadEvent;
+import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.resource.index.CommonGunIndex;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -22,6 +29,7 @@ public final class ModEventHandler {
 
     private static int last_bullet_level = 0;
     private static final Map<UUID, Long> last_bullet_time = new HashMap<>();
+    private static final Map<UUID, Deque<Integer>> PLAYER_BULLET_QUEUES = new HashMap<>();
 
     private static final EquipmentSlot[] ARMOR_SLOTS = {
             EquipmentSlot.HEAD,
@@ -32,6 +40,125 @@ public final class ModEventHandler {
 
     private static final String TACZ_BULLET_MSG = "tacz.bullet";
     private static final String TACZ_MELEE_MSG = "tacz.melee";
+
+    @SubscribeEvent
+    public void on_gun_reload(GunReloadEvent event) {
+        if (event.getLogicalSide().isClient()) {
+            return;
+        }
+        ItemStack gun_stack = event.getGunItemStack();
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        IGun iGun = IGun.getIGunOrNull(gun_stack);
+        if (iGun == null) {
+            return;
+        }
+
+        int current_ammo = iGun.getCurrentAmmoCount(gun_stack);
+        int max_ammo = get_max_ammo_count(iGun, gun_stack);
+        if (max_ammo <= 0) {
+            max_ammo = current_ammo + 999;
+        }
+        int needed = Math.max(0, max_ammo - current_ammo);
+
+        Deque<Integer> queue = PLAYER_BULLET_QUEUES.computeIfAbsent(
+                player.getUUID(), k -> new ArrayDeque<>());
+
+        List<Integer> new_levels = BulletLevelHandler.determine_bullet_levels_for_gun(player, gun_stack);
+
+        if (current_ammo > 0 && !queue.isEmpty()) {
+            while (queue.size() > current_ammo) {
+                queue.pollLast();
+            }
+            while (queue.size() < current_ammo) {
+                queue.addLast(ModConfig.COMMON.default_bullet_level.get());
+            }
+        } else if (current_ammo <= 0) {
+            queue.clear();
+        }
+
+        int added = 0;
+        for (int level : new_levels) {
+            if (added >= needed) {
+                break;
+            }
+            queue.addLast(level);
+            added++;
+        }
+
+        int display_level = queue.isEmpty()
+                ? ModConfig.COMMON.default_bullet_level.get()
+                : queue.peekFirst();
+        BulletLevelUtil.set_bullet_level(gun_stack, display_level);
+
+        boolean has_mixed = false;
+        int first = -1;
+        for (int lv : queue) {
+            if (first == -1) {
+                first = lv;
+            } else if (lv != first) {
+                has_mixed = true;
+                break;
+            }
+        }
+        if (has_mixed) {
+            gun_stack.getOrCreateTag().putBoolean("OneShot.HasMixed", true);
+        } else {
+            CompoundTag tag = gun_stack.getTag();
+            if (tag != null) {
+                tag.remove("OneShot.HasMixed");
+            }
+        }
+
+        OneShotMod.LOGGER.debug("Reload: gun={}, cur={}, max={}, queue={}, display={}",
+                iGun.getGunId(gun_stack), current_ammo, max_ammo, queue.size(), display_level);
+    }
+
+    @SubscribeEvent
+    public void on_gun_fire(GunFireEvent event) {
+        if (event.getLogicalSide().isClient()) {
+            return;
+        }
+        LivingEntity shooter = event.getShooter();
+        Deque<Integer> queue = PLAYER_BULLET_QUEUES.get(shooter.getUUID());
+
+        int level = 0;
+        if (queue != null && !queue.isEmpty()) {
+            level = queue.pollFirst();
+        }
+
+        if (level <= 0) {
+            level = ModConfig.COMMON.default_bullet_level.get();
+        }
+        last_bullet_level = level;
+        last_bullet_time.put(shooter.getUUID(), System.currentTimeMillis());
+
+        ItemStack gun_stack = event.getGunItemStack();
+        int next_level = (queue != null && !queue.isEmpty())
+                ? queue.peekFirst()
+                : ModConfig.COMMON.default_bullet_level.get();
+        BulletLevelUtil.set_bullet_level(gun_stack, next_level);
+
+        boolean has_mixed = false;
+        if (queue != null && queue.size() > 1) {
+            int first = queue.peekFirst();
+            for (int lv : queue) {
+                if (lv != first) {
+                    has_mixed = true;
+                    break;
+                }
+            }
+        }
+        if (has_mixed) {
+            gun_stack.getOrCreateTag().putBoolean("OneShot.HasMixed", true);
+        } else {
+            CompoundTag tag = gun_stack.getTag();
+            if (tag != null) {
+                tag.remove("OneShot.HasMixed");
+            }
+        }
+    }
 
     @SubscribeEvent
     public void on_living_hurt(LivingHurtEvent event) {
@@ -46,7 +173,12 @@ public final class ModEventHandler {
 
     private void process_bullet_damage(LivingHurtEvent event, Player attacker) {
         boolean is_melee = TACZ_MELEE_MSG.equals(event.getSource().getMsgId());
-        int bullet_level = is_melee ? 7 : get_attacker_bullet_level(attacker);
+        int bullet_level;
+        if (is_melee) {
+            bullet_level = 7;
+        } else {
+            bullet_level = last_bullet_level > 0 ? last_bullet_level : get_attacker_bullet_level(attacker);
+        }
         if (bullet_level <= 0) {
             bullet_level = ModConfig.COMMON.default_bullet_level.get();
         }
@@ -194,12 +326,23 @@ public final class ModEventHandler {
         return TACZ_BULLET_MSG.equals(msg) || TACZ_MELEE_MSG.equals(msg);
     }
 
+    private int get_max_ammo_count(IGun iGun, ItemStack gun_stack) {
+        ResourceLocation gun_id = iGun.getGunId(gun_stack);
+        if (gun_id == null) {
+            return -1;
+        }
+        Optional<CommonGunIndex> index = TimelessAPI.getCommonGunIndex(gun_id);
+        if (index.isEmpty()) {
+            return -1;
+        }
+        return index.get().getGunData().getAmmoAmount();
+    }
+
     private int get_attacker_bullet_level(Player attacker) {
         ItemStack main_hand = attacker.getMainHandItem();
-        if (!main_hand.isEmpty()) {
-            String item_id = main_hand.getItem().builtInRegistryHolder().key().location().toString();
-            if (item_id.startsWith("tacz:")) {
-                return get_gun_bullet_level(attacker, main_hand);
+        if (!main_hand.isEmpty() && main_hand.getItem() instanceof IGun) {
+            if (BulletLevelUtil.has_bullet_level(main_hand)) {
+                return BulletLevelUtil.get_bullet_level(main_hand);
             }
         }
 
@@ -210,14 +353,6 @@ public final class ModEventHandler {
         }
 
         return last_bullet_level > 0 ? last_bullet_level : ModConfig.COMMON.default_bullet_level.get();
-    }
-
-    private int get_gun_bullet_level(Player attacker, ItemStack gun_stack) {
-        List<ItemStack> sorted_ammo = BulletLevelHandler.get_sorted_ammo_from_inventory(attacker, gun_stack);
-        if (!sorted_ammo.isEmpty()) {
-            return BulletLevelUtil.get_bullet_level(sorted_ammo.get(0));
-        }
-        return ModConfig.COMMON.default_bullet_level.get();
     }
 
     public static int get_armor_level(LivingEntity entity) {

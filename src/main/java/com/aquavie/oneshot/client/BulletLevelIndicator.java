@@ -3,6 +3,7 @@ package com.aquavie.oneshot.client;
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
 import com.aquavie.oneshot.config.ModConfig;
 import com.aquavie.oneshot.network.BulletLevelUtil;
+import com.tacz.guns.api.item.IGun;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -23,6 +24,8 @@ public final class BulletLevelIndicator {
             0xFFFFD700
     };
 
+    private static int cached_bullet_level = 0;
+
     @SubscribeEvent
     public void on_render_overlay(RenderGuiOverlayEvent.Post event) {
         if (event.getOverlay() != VanillaGuiOverlay.HOTBAR.type()) {
@@ -38,26 +41,35 @@ public final class BulletLevelIndicator {
         ItemStack main_hand = player.getMainHandItem();
 
         if (main_hand.isEmpty()) {
+            cached_bullet_level = 0;
             return;
         }
 
-        String item_id = main_hand.getItem().builtInRegistryHolder().key().location().toString();
-        if (!item_id.startsWith("tacz:")) {
+        if (!(main_hand.getItem() instanceof IGun)) {
+            cached_bullet_level = 0;
             return;
         }
 
-        int bullet_level = get_current_bullet_level(player);
+        int bullet_level = get_current_bullet_level(player, main_hand);
         if (bullet_level <= 0) {
-            bullet_level = ModConfig.COMMON.default_bullet_level.get();
+            bullet_level = cached_bullet_level > 0 ? cached_bullet_level : ModConfig.COMMON.default_bullet_level.get();
+        }
+        cached_bullet_level = bullet_level;
+
+        boolean has_mixed = false;
+        var tag = main_hand.getTag();
+        if (tag != null && tag.contains("OneShot.HasMixed")) {
+            has_mixed = tag.getBoolean("OneShot.HasMixed");
         }
 
-        render_bullet_level_indicator(event.getGuiGraphics(), bullet_level);
+        render_bullet_level_indicator(event.getGuiGraphics(), bullet_level, has_mixed);
     }
 
-    private int get_current_bullet_level(LocalPlayer player) {
-        ItemStack main_hand = player.getMainHandItem();
-        if (!main_hand.isEmpty() && BulletLevelHandler.is_bullet_level_item(main_hand)) {
-            return BulletLevelUtil.get_bullet_level(main_hand);
+    private int get_current_bullet_level(LocalPlayer player, ItemStack main_hand) {
+        if (!main_hand.isEmpty() && main_hand.getItem() instanceof IGun) {
+            if (BulletLevelUtil.has_bullet_level(main_hand)) {
+                return BulletLevelUtil.get_bullet_level(main_hand);
+            }
         }
 
         for (ItemStack stack : player.getInventory().items) {
@@ -66,10 +78,10 @@ public final class BulletLevelIndicator {
             }
         }
 
-        return ModConfig.COMMON.default_bullet_level.get();
+        return 0;
     }
 
-    private void render_bullet_level_indicator(GuiGraphics graphics, int bullet_level) {
+    private void render_bullet_level_indicator(GuiGraphics graphics, int bullet_level, boolean has_mixed) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) {
             return;
@@ -86,7 +98,7 @@ public final class BulletLevelIndicator {
 
         boolean render_border = ModConfig.CLIENT.rendering_level_border.get();
         if (render_border) {
-            render_level_border(graphics, x - 2, y - 2, text);
+            render_level_border(graphics, x - 2, y - 2, text, has_mixed);
         }
 
         graphics.pose().pushPose();
@@ -97,15 +109,22 @@ public final class BulletLevelIndicator {
         String level_str = "Lv." + bullet_level;
         graphics.drawString(mc.font, level_str, x, y + 10, 0xFFFFFFFF, true);
 
+        if (has_mixed) {
+            graphics.drawString(mc.font, "▲", x + mc.font.width(text) + 2, y, 0xFFAAFF00, true);
+        }
+
         graphics.pose().popPose();
     }
 
-    private void render_level_border(GuiGraphics graphics, int x, int y, String text) {
+    private void render_level_border(GuiGraphics graphics, int x, int y, String text, boolean has_mixed) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) {
             return;
         }
         int text_width = mc.font.width(text);
+        if (has_mixed) {
+            text_width += mc.font.width("▲") + 2;
+        }
         int border_width = text_width + 6;
         int border_height = 24;
 
