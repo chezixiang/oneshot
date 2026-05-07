@@ -36,9 +36,9 @@ public final class ModConfig {
         public final ConfigValue<List<Integer>> priority_filling_order;
         public final IntValue bullet_level_for_explosion_calculation;
         public final ConfigValue<List<String>> bullet_default_texts;
-        public final ConfigValue<List<Double>> armor_penetration_flat;
-        public final ConfigValue<List<Double>> break_armor_damage_flat;
-        public final ConfigValue<List<Double>> armor_damage_flat;
+        public final ConfigValue<List<Double>> attackDamageMatrix;
+        public final ConfigValue<List<Double>> breakArmorDamageMatrix;
+        public final ConfigValue<List<Double>> armorDamageMatrix;
         public final DoubleValue durable_consumption_of_quick_repair_kit;
 
         public final DoubleValue armor_durability_damage_base;
@@ -94,7 +94,7 @@ public final class ModConfig {
                             Arrays.asList(0xFFAAAAAA, 0xFF55FF55, 0xFF5555FF, 0xFFFF55FF, 0xFFFF5555, 0xFFFFAA00, 0xFFFFD700),
                             list -> list instanceof List && ((List<?>) list).size() == 7);
 
-            armor_penetration_flat = builder
+            attackDamageMatrix = builder
                     .comment("",
                             "============== Attack Damage Matrix (Player Damage) ==============",
                             "Rows: Bullet Level 1-7,  Columns: Armor Level 1-6",
@@ -113,7 +113,7 @@ public final class ModConfig {
                     .define("AttackDamageMatrix", default_penetration_flat(),
                             list -> list instanceof List && ((List<?>) list).size() == 42);
 
-            break_armor_damage_flat = builder
+            breakArmorDamageMatrix = builder
                     .comment("",
                             "============== Break Armor Damage Matrix ==============",
                             "Damage multiplier when bullet breaks armor (durability reaches 0)",
@@ -121,7 +121,7 @@ public final class ModConfig {
                     .define("BreakArmorDamageMatrix", default_penetration_flat(),
                             list -> list instanceof List && ((List<?>) list).size() == 42);
 
-            armor_damage_flat = builder
+            armorDamageMatrix = builder
                     .comment("",
                             "============== Armor Damage Matrix ==============",
                             "Damage multiplier to armor itself (durability loss)",
@@ -258,7 +258,7 @@ public final class ModConfig {
     }
 
     public static double get_damage_multiplier(int armor_level, int bullet_level) {
-        return getMultiplierFromMatrix(COMMON.armor_penetration_flat.get(), armor_level, bullet_level);
+        return getMultiplierFromMatrix(COMMON.attackDamageMatrix.get(), armor_level, bullet_level);
     }
 
     public static double get_armor_durability_multiplier(int bullet_level, int armor_level) {
@@ -287,11 +287,11 @@ public final class ModConfig {
     }
 
     public static double get_break_armor_damage_multiplier(int armor_level, int bullet_level) {
-        return getMultiplierFromMatrix(COMMON.break_armor_damage_flat.get(), armor_level, bullet_level);
+        return getMultiplierFromMatrix(COMMON.breakArmorDamageMatrix.get(), armor_level, bullet_level);
     }
 
     public static double get_armor_damage_multiplier(int armor_level, int bullet_level) {
-        return getMultiplierFromMatrix(COMMON.armor_damage_flat.get(), armor_level, bullet_level);
+        return getMultiplierFromMatrix(COMMON.armorDamageMatrix.get(), armor_level, bullet_level);
     }
 
     public static int get_effective_ammo_box_level() {

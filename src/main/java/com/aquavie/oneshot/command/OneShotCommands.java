@@ -350,10 +350,10 @@ public final class OneShotCommands {
 
     private static int setConfigAttackDamage(CommandSourceStack source, int ammoLevel, int armorLevel, double point) {
         try {
-            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.armor_penetration_flat.get());
+            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.attackDamageMatrix.get());
             int index = (ammoLevel - 1) * 6 + (armorLevel - 1);
             matrix.set(index, point);
-            com.aquavie.oneshot.config.ModConfig.COMMON.armor_penetration_flat.set(matrix);
+            com.aquavie.oneshot.config.ModConfig.COMMON.attackDamageMatrix.set(matrix);
             saveConfig();
             source.sendSuccess(() -> Component.literal(
                     String.format("Set attackdamage for ammoLv%d vs armorLv%d to %.2f. Restart required!",
@@ -367,10 +367,10 @@ public final class OneShotCommands {
 
     private static int setConfigBreakArmorDamage(CommandSourceStack source, int ammoLevel, int armorLevel, double point) {
         try {
-            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.break_armor_damage_flat.get());
+            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.breakArmorDamageMatrix.get());
             int index = (ammoLevel - 1) * 6 + (armorLevel - 1);
             matrix.set(index, point);
-            com.aquavie.oneshot.config.ModConfig.COMMON.break_armor_damage_flat.set(matrix);
+            com.aquavie.oneshot.config.ModConfig.COMMON.breakArmorDamageMatrix.set(matrix);
             saveConfig();
             source.sendSuccess(() -> Component.literal(
                     String.format("Set breakfielddamage for ammoLv%d vs armorLv%d to %.2f. Restart required!",
@@ -384,10 +384,10 @@ public final class OneShotCommands {
 
     private static int setConfigArmorDamage(CommandSourceStack source, int ammoLevel, int armorLevel, double point) {
         try {
-            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.armor_damage_flat.get());
+            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.armorDamageMatrix.get());
             int index = (ammoLevel - 1) * 6 + (armorLevel - 1);
             matrix.set(index, point);
-            com.aquavie.oneshot.config.ModConfig.COMMON.armor_damage_flat.set(matrix);
+            com.aquavie.oneshot.config.ModConfig.COMMON.armorDamageMatrix.set(matrix);
             saveConfig();
             source.sendSuccess(() -> Component.literal(
                     String.format("Set fielddamage for ammoLv%d vs armorLv%d to %.2f. Restart required!",
