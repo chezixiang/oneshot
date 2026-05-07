@@ -47,7 +47,7 @@ public final class BulletLevelReloadListener extends SimplePreparableReloadListe
                 result.put(ammo_item_id, json);
                 OneShotMod.LOGGER.debug("Found ammo index JSON: {} -> {}", path, ammo_item_id);
             } catch (Exception e) {
-                OneShotMod.LOGGER.warn("Failed to read ammo index JSON {}: {}", path, e.getMessage());
+                OneShotMod.LOGGER.warn("Failed to read ammo index JSON {}: {}", path, e.getMessage(), e);
             }
         }
 

@@ -37,6 +37,8 @@ public final class ModConfig {
         public final IntValue bullet_level_for_explosion_calculation;
         public final ConfigValue<List<String>> bullet_default_texts;
         public final ConfigValue<List<Double>> armor_penetration_flat;
+        public final ConfigValue<List<Double>> break_armor_damage_flat;
+        public final ConfigValue<List<Double>> armor_damage_flat;
         public final DoubleValue durable_consumption_of_quick_repair_kit;
 
         public final DoubleValue armor_durability_damage_base;
@@ -44,12 +46,29 @@ public final class ModConfig {
         public final DoubleValue armor_durability_damage_plus2;
         public final DoubleValue armor_durability_damage_plus3;
 
+        public final IntValue default_ammo_box_level;
+        public final IntValue default_creative_level;
+        public final BooleanValue auto_set_armor_rarity;
+        public final ConfigValue<List<Integer>> bullet_colors;
+
         CommonConfig(ForgeConfigSpec.Builder builder) {
             builder.push("general");
 
             default_bullet_level = builder
                     .comment("Default bullet level when gun pack doesn't specify one (1-7)")
                     .defineInRange("DefaultBulletLevel", 3, 1, 7);
+
+            default_ammo_box_level = builder
+                    .comment("Default bullet level for creative ammo box (0 or negative = use DefaultBulletLevel)")
+                    .defineInRange("DefaultAmmoBoxLevel", 0, -1, 7);
+
+            default_creative_level = builder
+                    .comment("Default bullet level for creative reload (0 or negative = use DefaultBulletLevel)")
+                    .defineInRange("DefaultCreativeLevel", 0, -1, 7);
+
+            auto_set_armor_rarity = builder
+                    .comment("Auto apply rarity to armor with ArmorLevel enchantment when rarity mod is loaded")
+                    .define("AutoSetArmorRarity", true);
 
             priority_filling_order = builder
                     .comment("Priority order for bullet level filling when reloading",
@@ -68,9 +87,16 @@ public final class ModConfig {
                             Arrays.asList("RRLP", "FMJ", "M855", "M855A1", "M995", "M61", "AP"),
                             list -> list instanceof List && ((List<?>) list).size() == 7);
 
+            bullet_colors = builder
+                    .comment("Display colors for each bullet level in ARGB format (index 0=level1)",
+                            "Default: 0xFFAAAAAA, 0xFF55FF55, 0xFF5555FF, 0xFFFF55FF, 0xFFFF5555, 0xFFFFAA00, 0xFFFFD700")
+                    .define("BulletColors",
+                            Arrays.asList(0xFFAAAAAA, 0xFF55FF55, 0xFF5555FF, 0xFFFF55FF, 0xFFFF5555, 0xFFFFAA00, 0xFFFFD700),
+                            list -> list instanceof List && ((List<?>) list).size() == 7);
+
             armor_penetration_flat = builder
                     .comment("",
-                            "============== Armor Penetration Matrix ==============",
+                            "============== Attack Damage Matrix (Player Damage) ==============",
                             "Rows: Bullet Level 1-7,  Columns: Armor Level 1-6",
                             "Value = damage multiplier penetrating to player.",
                             "Armor level 0 (no/broken armor) = always 1.0.",
@@ -80,11 +106,27 @@ public final class ModConfig {
                             "  Lv2    0.75   0.25  0    0    0    0",
                             "  Lv3    1.0    0.75 0.25  0    0    0",
                             "  Lv4    1.0    1.0  0.75 0.25  0    0",
-                            "  Lv5    1.0    1.0  1.0  0.75 0.25  0",
-                            "  Lv6    1.0    1.0  1.0  1.0  0.75 0.25",
-                            "  Lv7    1.0    1.0  1.0  1.0  1.0  0.75",
-                            "====================================================")
-                    .define("ArmorPenetrationMatrix", default_penetration_flat(),
+                            "  Lv5    1.0    1.0  1.0 0.75 0.25  0",
+                            "  Lv6    1.0    1.0  1.0 1.0 0.75 0.25",
+                            "  Lv7    1.0    1.0  1.0 1.0 1.0 0.75",
+                            "================================================================")
+                    .define("AttackDamageMatrix", default_penetration_flat(),
+                            list -> list instanceof List && ((List<?>) list).size() == 42);
+
+            break_armor_damage_flat = builder
+                    .comment("",
+                            "============== Break Armor Damage Matrix ==============",
+                            "Damage multiplier when bullet breaks armor (durability reaches 0)",
+                            "Rows: Bullet Level 1-7,  Columns: Armor Level 1-6")
+                    .define("BreakArmorDamageMatrix", default_penetration_flat(),
+                            list -> list instanceof List && ((List<?>) list).size() == 42);
+
+            armor_damage_flat = builder
+                    .comment("",
+                            "============== Armor Damage Matrix ==============",
+                            "Damage multiplier to armor itself (durability loss)",
+                            "Rows: Bullet Level 1-7,  Columns: Armor Level 1-6")
+                    .define("ArmorDamageMatrix", default_penetration_flat(),
                             list -> list instanceof List && ((List<?>) list).size() == 42);
 
             builder.pop();
@@ -198,19 +240,25 @@ public final class ModConfig {
         return List.of(1, 2, 3, 4, 5, 6);
     }
 
-    public static double get_damage_multiplier(int armor_level, int bullet_level) {
-        if (armor_level <= 0) {
+    private static final int MAX_BULLET_LEVEL = 7;
+    private static final int MAX_ARMOR_LEVEL = 6;
+
+    private static double getMultiplierFromMatrix(List<Double> matrix, int armorLevel, int bulletLevel) {
+        if (armorLevel <= 0) {
             return 1.0;
         }
-        int bullet_row = Math.max(0, Math.min(6, bullet_level - 1));
-        int armor_col = Math.max(0, Math.min(5, armor_level - 1));
+        int bulletRow = Math.max(0, Math.min(MAX_BULLET_LEVEL - 1, bulletLevel - 1));
+        int armorCol = Math.max(0, Math.min(MAX_ARMOR_LEVEL - 1, armorLevel - 1));
 
-        List<Double> flat = COMMON.armor_penetration_flat.get();
-        int index = bullet_row * 6 + armor_col;
-        if (index >= 0 && index < flat.size()) {
-            return flat.get(index);
+        int index = bulletRow * MAX_ARMOR_LEVEL + armorCol;
+        if (index >= 0 && index < matrix.size()) {
+            return matrix.get(index);
         }
         return 1.0;
+    }
+
+    public static double get_damage_multiplier(int armor_level, int bullet_level) {
+        return getMultiplierFromMatrix(COMMON.armor_penetration_flat.get(), armor_level, bullet_level);
     }
 
     public static double get_armor_durability_multiplier(int bullet_level, int armor_level) {
@@ -230,5 +278,29 @@ public final class ModConfig {
         List<String> texts = COMMON.bullet_default_texts.get();
         int index = Math.max(0, Math.min(texts.size() - 1, level - 1));
         return texts.get(index);
+    }
+
+    public static int get_bullet_color(int level) {
+        List<Integer> colors = COMMON.bullet_colors.get();
+        int index = Math.max(0, Math.min(colors.size() - 1, level - 1));
+        return colors.get(index);
+    }
+
+    public static double get_break_armor_damage_multiplier(int armor_level, int bullet_level) {
+        return getMultiplierFromMatrix(COMMON.break_armor_damage_flat.get(), armor_level, bullet_level);
+    }
+
+    public static double get_armor_damage_multiplier(int armor_level, int bullet_level) {
+        return getMultiplierFromMatrix(COMMON.armor_damage_flat.get(), armor_level, bullet_level);
+    }
+
+    public static int get_effective_ammo_box_level() {
+        int level = COMMON.default_ammo_box_level.get();
+        return level <= 0 ? COMMON.default_bullet_level.get() : level;
+    }
+
+    public static int get_effective_creative_level() {
+        int level = COMMON.default_creative_level.get();
+        return level <= 0 ? COMMON.default_bullet_level.get() : level;
     }
 }

@@ -1,5 +1,6 @@
 package com.aquavie.oneshot.event;
 
+import com.aquavie.oneshot.ModConstants;
 import com.aquavie.oneshot.OneShotMod;
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
 import com.aquavie.oneshot.config.ModConfig;
@@ -31,16 +32,17 @@ public final class ModEventHandler {
     private static int last_bullet_level = 0;
     private static final Map<UUID, Long> last_bullet_time = new HashMap<>();
     private static final Map<UUID, Deque<Integer>> PLAYER_BULLET_QUEUES = new HashMap<>();
-
-    private static final EquipmentSlot[] ARMOR_SLOTS = {
-            EquipmentSlot.HEAD,
-            EquipmentSlot.CHEST,
-            EquipmentSlot.LEGS,
-            EquipmentSlot.FEET
-    };
+    private static long lastCleanupTime = 0;
+    private static final long CLEANUP_INTERVAL_MS = 60000; // 1 minute
+    private static final long CLEANUP_THRESHOLD_MS = 300000; // 5 minutes
 
     private static final String TACZ_BULLET_MSG = "tacz.bullet";
     private static final String TACZ_MELEE_MSG = "tacz.melee";
+    private static final double EXPLOSION_DAMAGE_RATIO = 0.25;
+    private static final double REACH_DISTANCE = 50.0;
+    private static final double HEAD_RATIO = 0.78;
+    private static final double CHEST_RATIO = 0.42;
+    private static final double LEGS_RATIO = 0.15;
 
     @SubscribeEvent
     public void on_gun_reload(GunReloadEvent event) {
@@ -110,24 +112,7 @@ public final class ModEventHandler {
         BulletLevelUtil.set_bullet_level(gun_stack, display_level);
 
         // 检测混合等级
-        boolean has_mixed = false;
-        if (queue.size() > 1) {
-            int first = queue.peekFirst();
-            for (int lv : queue) {
-                if (lv != first) {
-                    has_mixed = true;
-                    break;
-                }
-            }
-        }
-        if (has_mixed) {
-            gun_stack.getOrCreateTag().putBoolean("OneShot.HasMixed", true);
-        } else {
-            CompoundTag tag = gun_stack.getTag();
-            if (tag != null) {
-                tag.remove("OneShot.HasMixed");
-            }
-        }
+        boolean has_mixed = updateMixedLevelTag(gun_stack, queue);
 
         OneShotMod.LOGGER.debug("Reload: gun={}, cur={}, max={}, queue={}, added={}, display={}, mixed={}",
                 iGun.getGunId(gun_stack), current_ammo, max_ammo, queue.size(), added, display_level, has_mixed);
@@ -140,6 +125,7 @@ public final class ModEventHandler {
         if (event.getLogicalSide().isClient()) {
             return;
         }
+        cleanupOldEntries();
         LivingEntity shooter = event.getShooter();
         Deque<Integer> queue = PLAYER_BULLET_QUEUES.get(shooter.getUUID());
 
@@ -161,24 +147,7 @@ public final class ModEventHandler {
         BulletLevelUtil.set_bullet_level(gun_stack, next_level);
 
         // 更新混合标志
-        boolean has_mixed = false;
-        if (queue != null && queue.size() > 1) {
-            int first = queue.peekFirst();
-            for (int lv : queue) {
-                if (lv != first) {
-                    has_mixed = true;
-                    break;
-                }
-            }
-        }
-        if (has_mixed) {
-            gun_stack.getOrCreateTag().putBoolean("OneShot.HasMixed", true);
-        } else {
-            CompoundTag tag = gun_stack.getTag();
-            if (tag != null) {
-                tag.remove("OneShot.HasMixed");
-            }
-        }
+        updateMixedLevelTag(gun_stack, queue);
 
         save_bullet_queue_to_nbt(gun_stack, queue);
     }
@@ -231,7 +200,7 @@ public final class ModEventHandler {
 
     private void process_explosion_damage(LivingHurtEvent event, Player attacker) {
         Long last = last_bullet_time.get(attacker.getUUID());
-        if (last == null || System.currentTimeMillis() - last > 1000) {
+        if (last == null || System.currentTimeMillis() - last > ModConstants.EXPLOSION_TIME_WINDOW_MS) {
             return;
         }
 
@@ -243,8 +212,8 @@ public final class ModEventHandler {
         float original_damage = event.getAmount();
         float player_damage = (float) (original_damage * multiplier);
 
-        for (EquipmentSlot slot : ARMOR_SLOTS) {
-            apply_armor_damage_to_slot(target, bullet_level, original_damage * 0.25f, slot);
+        for (EquipmentSlot slot : ModConstants.ARMOR_SLOTS) {
+            apply_armor_damage_to_slot(target, bullet_level, (float) (original_damage * EXPLOSION_DAMAGE_RATIO), slot);
         }
 
         event.setAmount(player_damage);
@@ -275,7 +244,7 @@ public final class ModEventHandler {
 
         EquipmentSlot[] overflow_targets = get_overflow_slots(slot);
         int remaining = damage;
-        int per_slot = Math.max(1, remaining / overflow_targets.length);
+        int per_slot = overflow_targets.length > 0 ? Math.max(1, remaining / overflow_targets.length) : remaining;
 
         for (EquipmentSlot overflow : overflow_targets) {
             if (remaining <= 0) {
@@ -341,8 +310,7 @@ public final class ModEventHandler {
     private Vec3 estimate_hit_from_aim(Player attacker, LivingEntity target) {
         Vec3 eye = attacker.getEyePosition();
         Vec3 look = attacker.getLookAngle();
-        double reach = 50.0;
-        Vec3 end = eye.add(look.scale(reach));
+        Vec3 end = eye.add(look.scale(REACH_DISTANCE));
 
         AABB box = target.getBoundingBox();
         Optional<Vec3> hit = box.clip(eye, end);
@@ -366,11 +334,11 @@ public final class ModEventHandler {
         double ratio = (hit_pos.y - feet_y) / height;
         ratio = Math.max(0.0, Math.min(1.0, ratio));
 
-        if (ratio >= 0.78) {
+        if (ratio >= HEAD_RATIO) {
             return EquipmentSlot.HEAD;
-        } else if (ratio >= 0.42) {
+        } else if (ratio >= CHEST_RATIO) {
             return EquipmentSlot.CHEST;
-        } else if (ratio >= 0.15) {
+        } else if (ratio >= LEGS_RATIO) {
             return EquipmentSlot.LEGS;
         } else {
             return EquipmentSlot.FEET;
@@ -418,7 +386,7 @@ public final class ModEventHandler {
     public static int get_armor_level(LivingEntity entity) {
         int max_level = 0;
 
-        for (EquipmentSlot slot : ARMOR_SLOTS) {
+        for (EquipmentSlot slot : ModConstants.ARMOR_SLOTS) {
             ItemStack armor = entity.getItemBySlot(slot);
             if (!armor.isEmpty() && armor.getDamageValue() < armor.getMaxDamage()) {
                 int level = EnchantmentHelper.getTagEnchantmentLevel(
@@ -432,17 +400,37 @@ public final class ModEventHandler {
         return max_level;
     }
 
+    private static boolean updateMixedLevelTag(ItemStack gunStack, Deque<Integer> queue) {
+        boolean hasMixed = false;
+        if (queue != null && queue.size() > 1) {
+            int first = queue.peekFirst();
+            for (int lv : queue) {
+                if (lv != first) {
+                    hasMixed = true;
+                    break;
+                }
+            }
+        }
+        if (hasMixed) {
+            gunStack.getOrCreateTag().putBoolean(ModConstants.NBT_HAS_MIXED, true);
+        } else {
+            CompoundTag tag = gunStack.getTag();
+            if (tag != null) {
+                tag.remove(ModConstants.NBT_HAS_MIXED);
+            }
+        }
+        return hasMixed;
+    }
+
     public static int get_last_bullet_level() {
         return last_bullet_level;
     }
-
-    private static final String QUEUE_NBT_KEY = "OneShot.BulletQueue";
 
     private static void save_bullet_queue_to_nbt(ItemStack gun_stack, Deque<Integer> queue) {
         if (queue == null || queue.isEmpty()) {
             CompoundTag tag = gun_stack.getTag();
             if (tag != null) {
-                tag.remove(QUEUE_NBT_KEY);
+                tag.remove(ModConstants.NBT_BULLET_QUEUE);
             }
             return;
         }
@@ -453,17 +441,17 @@ public final class ModEventHandler {
             index++;
         }
         queue_tag.putInt("size", queue.size());
-        gun_stack.getOrCreateTag().put(QUEUE_NBT_KEY, queue_tag);
+        gun_stack.getOrCreateTag().put(ModConstants.NBT_BULLET_QUEUE, queue_tag);
     }
 
     private static Deque<Integer> restore_bullet_queue_from_nbt(ItemStack gun_stack) {
         CompoundTag tag = gun_stack.getTag();
-        if (tag == null || !tag.contains(QUEUE_NBT_KEY, CompoundTag.TAG_COMPOUND)) {
+        if (tag == null || !tag.contains(ModConstants.NBT_BULLET_QUEUE, CompoundTag.TAG_COMPOUND)) {
             return null;
         }
-        CompoundTag queue_tag = tag.getCompound(QUEUE_NBT_KEY);
+        CompoundTag queue_tag = tag.getCompound(ModConstants.NBT_BULLET_QUEUE);
         int size = queue_tag.getInt("size");
-        if (size <= 0 || size > 200) {
+        if (size <= 0 || size > ModConstants.MAX_QUEUE_SIZE) {
             return null;
         }
         Deque<Integer> restored = new ArrayDeque<>();
@@ -475,5 +463,25 @@ public final class ModEventHandler {
             }
         }
         return restored;
+    }
+
+    private static void cleanupOldEntries() {
+        long now = System.currentTimeMillis();
+        if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
+            return;
+        }
+        lastCleanupTime = now;
+
+        // Clean up entries older than 5 minutes
+        long threshold = now - CLEANUP_THRESHOLD_MS;
+        Iterator<Map.Entry<UUID, Long>> timeIterator = last_bullet_time.entrySet().iterator();
+        while (timeIterator.hasNext()) {
+            Map.Entry<UUID, Long> entry = timeIterator.next();
+            if (entry.getValue() < threshold) {
+                UUID uuid = entry.getKey();
+                timeIterator.remove();
+                PLAYER_BULLET_QUEUES.remove(uuid);
+            }
+        }
     }
 }

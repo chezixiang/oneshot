@@ -1,5 +1,6 @@
 package com.aquavie.oneshot.item;
 
+import com.aquavie.oneshot.ModConstants;
 import com.aquavie.oneshot.config.ModConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -17,13 +18,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public final class QuickRepairKitItem extends Item {
-
-    private static final EquipmentSlot[] ARMOR_SLOTS = {
-            EquipmentSlot.HEAD,
-            EquipmentSlot.CHEST,
-            EquipmentSlot.LEGS,
-            EquipmentSlot.FEET
-    };
 
     public QuickRepairKitItem() {
         super(new Item.Properties().stacksTo(16));
@@ -83,7 +77,7 @@ public final class QuickRepairKitItem extends Item {
 
     @Nullable
     private static ItemStack find_damaged_armor(Player player) {
-        for (EquipmentSlot slot : ARMOR_SLOTS) {
+        for (EquipmentSlot slot : ModConstants.ARMOR_SLOTS) {
             ItemStack armor = player.getItemBySlot(slot);
             if (!armor.isEmpty() && armor.isDamageableItem() && armor.getDamageValue() > 0) {
                 return armor;

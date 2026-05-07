@@ -1,20 +1,13 @@
 package com.aquavie.oneshot.enchantment;
 
-import net.minecraft.world.entity.EquipmentSlot;
+import com.aquavie.oneshot.ModConstants;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentCategory;
 
 public final class ArmorLevelEnchantment extends Enchantment {
 
-    private static final EquipmentSlot[] ARMOR_SLOTS = {
-            EquipmentSlot.HEAD,
-            EquipmentSlot.CHEST,
-            EquipmentSlot.LEGS,
-            EquipmentSlot.FEET
-    };
-
     public ArmorLevelEnchantment() {
-        super(Rarity.VERY_RARE, EnchantmentCategory.ARMOR, ARMOR_SLOTS);
+        super(Rarity.VERY_RARE, EnchantmentCategory.ARMOR, ModConstants.ARMOR_SLOTS);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.aquavie.oneshot.bullet;
 
+import com.aquavie.oneshot.ModConstants;
 import com.aquavie.oneshot.config.ModConfig;
 import com.aquavie.oneshot.integration.RarityIntegration;
 import com.aquavie.oneshot.network.BulletLevelUtil;
@@ -20,13 +21,6 @@ public final class BulletLevelHandler {
 
     private static final Set<String> AMMO_ITEM_IDS = new HashSet<>();
     private static final int TICK_SCAN_INTERVAL = 40;
-
-    private static final EquipmentSlot[] ARMOR_SLOTS = {
-            EquipmentSlot.HEAD,
-            EquipmentSlot.CHEST,
-            EquipmentSlot.LEGS,
-            EquipmentSlot.FEET
-    };
 
     static {
         AMMO_ITEM_IDS.add("tacz:rifle_ammo");
@@ -95,7 +89,7 @@ public final class BulletLevelHandler {
         }
 
         if (RarityIntegration.is_rarity_mod_loaded()) {
-            for (EquipmentSlot slot : ARMOR_SLOTS) {
+            for (EquipmentSlot slot : ModConstants.ARMOR_SLOTS) {
                 ItemStack armor_stack = player.getItemBySlot(slot);
                 if (!armor_stack.isEmpty() && RarityIntegration.has_armor_level_enchantment(armor_stack)) {
                     boolean should_apply = !armor_stack.getOrCreateTag().contains("OneShot.RarityApplied")

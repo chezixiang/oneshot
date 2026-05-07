@@ -3,7 +3,7 @@ package com.aquavie.oneshot;
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
 import com.aquavie.oneshot.bullet.BulletLevelReloadListener;
 import com.aquavie.oneshot.client.BulletLevelIndicator;
-import com.aquavie.oneshot.command.SetAmmoGradeCommand;
+import com.aquavie.oneshot.command.OneShotCommands;
 import com.aquavie.oneshot.config.ModConfig;
 import com.aquavie.oneshot.enchantment.ArmorLevelEnchantment;
 import com.aquavie.oneshot.event.ModEventHandler;
@@ -72,7 +72,7 @@ public final class OneShotMod {
     }
 
     private void on_register_commands(RegisterCommandsEvent event) {
-        SetAmmoGradeCommand.register(event.getDispatcher());
+        OneShotCommands.register(event.getDispatcher());
     }
 
     private void on_client_setup(FMLClientSetupEvent event) {

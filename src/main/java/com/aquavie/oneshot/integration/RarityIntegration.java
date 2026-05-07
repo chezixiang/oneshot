@@ -1,5 +1,6 @@
 package com.aquavie.oneshot.integration;
 
+import com.aquavie.oneshot.ModConstants;
 import com.aquavie.oneshot.OneShotMod;
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
 import com.aquavie.oneshot.config.ModConfig;
@@ -23,13 +24,6 @@ public final class RarityIntegration {
     private static boolean rarity_core_loaded = false;
     private static boolean item_rarity_loaded = false;
     private static boolean item_rarity_grades_registered = false;
-
-    private static final EquipmentSlot[] ARMOR_SLOTS = {
-            EquipmentSlot.HEAD,
-            EquipmentSlot.CHEST,
-            EquipmentSlot.LEGS,
-            EquipmentSlot.FEET
-    };
 
     static {
         LEVEL_TO_RARITY_NAME.put(1, "common");
@@ -106,7 +100,7 @@ public final class RarityIntegration {
         if (stack.isEmpty()) {
             return false;
         }
-        for (EquipmentSlot slot : ARMOR_SLOTS) {
+        for (EquipmentSlot slot : ModConstants.ARMOR_SLOTS) {
             if (stack.getEquipmentSlot() == slot) {
                 return true;
             }

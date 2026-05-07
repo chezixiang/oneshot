@@ -1,5 +1,6 @@
 package com.aquavie.oneshot.client;
 
+import com.aquavie.oneshot.ModConstants;
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
 import com.aquavie.oneshot.config.ModConfig;
 import com.aquavie.oneshot.network.BulletLevelUtil;
@@ -13,16 +14,6 @@ import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public final class BulletLevelIndicator {
-
-    private static final int[] LEVEL_COLORS = {
-            0xFFAAAAAA,
-            0xFF55FF55,
-            0xFF5555FF,
-            0xFFFF55FF,
-            0xFFFF5555,
-            0xFFFFAA00,
-            0xFFFFD700
-    };
 
     private static int cached_bullet_level = 0;
 
@@ -58,8 +49,8 @@ public final class BulletLevelIndicator {
 
         boolean has_mixed = false;
         var tag = main_hand.getTag();
-        if (tag != null && tag.contains("OneShot.HasMixed")) {
-            has_mixed = tag.getBoolean("OneShot.HasMixed");
+        if (tag != null && tag.contains(ModConstants.NBT_HAS_MIXED)) {
+            has_mixed = tag.getBoolean(ModConstants.NBT_HAS_MIXED);
         }
 
         render_bullet_level_indicator(event.getGuiGraphics(), bullet_level, has_mixed);
@@ -94,7 +85,7 @@ public final class BulletLevelIndicator {
         int y = screen_height - 48;
 
         String text = ModConfig.get_bullet_text(bullet_level);
-        int color = LEVEL_COLORS[Math.max(0, Math.min(LEVEL_COLORS.length - 1, bullet_level - 1))];
+        int color = ModConfig.get_bullet_color(bullet_level);
 
         boolean render_border = ModConfig.CLIENT.rendering_level_border.get();
         if (render_border) {
