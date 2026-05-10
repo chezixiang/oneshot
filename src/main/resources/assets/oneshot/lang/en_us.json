@@ -5,5 +5,17 @@
   "message.oneshot.armor_full": "Your armor is already at full durability!",
   "message.oneshot.armor_repaired": "Armor repaired successfully!",
   "tooltip.oneshot.quick_repair_kit": "Right-click: Restore 50%% durability, permanently lose %s of max durability",
-  "config.oneshot.bullet_level": "Bullet Level: %s"
+  "config.oneshot.bullet_level": "Bullet Level: %s",
+
+  "command.oneshot.player_only": "This command can only be used by a player!",
+  "command.oneshot.no_item_held": "You are not holding any item!",
+  "command.oneshot.not_tacz_ammo": "The held item is not a TACZ ammo item!",
+  "command.oneshot.must_hold_tacz_ammo_for_kind": "You must hold a TACZ ammo item for 'kind' mode!",
+  "command.oneshot.invalid_mode": "Invalid mode! Use: hand, kind, or all",
+  "command.oneshot.set_ammo_level_success": "Set ammo level to Lv.%s for %s items",
+  "command.oneshot.no_ammo_found": "No ammo items found to modify!",
+  "command.oneshot.config_save_failed": "Failed to save config: %s",
+  "command.oneshot.not_implemented": "This feature is not yet implemented",
+  "command.oneshot.set_config_value": "Set %s to %s",
+  "command.oneshot.restart_required": "Restart required for changes to take effect"
 }

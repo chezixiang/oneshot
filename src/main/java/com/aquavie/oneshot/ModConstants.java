@@ -12,7 +12,8 @@ public final class ModConstants {
     };
 
     public static final String NBT_HAS_MIXED = "OneShot.HasMixed";
-    public static final String NBT_BULLET_QUEUE = "OneShot.BulletQueue";
+    public static final String NBT_QUEUE_ID = "OneShot.QueueId";
+    public static final String NBT_RARITY_APPLIED = "OneShot.RarityApplied";
 
     public static final int MAX_QUEUE_SIZE = 2147483647;
     public static final long EXPLOSION_TIME_WINDOW_MS = 1000;

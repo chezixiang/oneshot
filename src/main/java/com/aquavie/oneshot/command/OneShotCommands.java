@@ -1,7 +1,7 @@
 package com.aquavie.oneshot.command;
 
-import com.aquavie.oneshot.OneShotMod;
 import com.aquavie.oneshot.bullet.BulletLevelHandler;
+import com.aquavie.oneshot.config.ModConfig;
 import com.aquavie.oneshot.integration.RarityIntegration;
 import com.aquavie.oneshot.network.BulletLevelUtil;
 import com.mojang.brigadier.CommandDispatcher;
@@ -16,12 +16,7 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.fml.config.ConfigTracker;
-import net.minecraftforge.fml.loading.FMLPaths;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,21 +25,13 @@ public final class OneShotCommands {
     private static final SuggestionProvider<CommandSourceStack> MODE_SUGGESTIONS = (ctx, builder) ->
             SharedSuggestionProvider.suggest(new String[]{"hand", "kind", "all"}, builder);
 
-    private static final SuggestionProvider<CommandSourceStack> CONFIG_SUGGESTIONS = (ctx, builder) ->
-            SharedSuggestionProvider.suggest(new String[]{
-                    "defaultammolevel", "defaultammoboxlevel", "defaultcreativelevel",
-                    "autosetarmor", "defaultammotext", "defaultammocolor",
-                    "attackdamage", "breakfielddamage", "fielddamage"
-            }, builder);
-
     private OneShotCommands() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("oneshot")
                 .requires(source -> source.hasPermission(3))
-                
-                // /oneshot setammolevel <hand/all/kind> <level>
+
                 .then(Commands.literal("setammolevel")
                         .then(Commands.argument("mode", StringArgumentType.word())
                                 .suggests(MODE_SUGGESTIONS)
@@ -55,124 +42,111 @@ public final class OneShotCommands {
                                 )
                         )
                 )
-                
-                // /oneshot config ...
+
                 .then(Commands.literal("config")
-                        // defaultammolevel <level>
                         .then(Commands.literal("defaultammolevel")
                                 .then(Commands.argument("level", IntegerArgumentType.integer(1, 7))
-                                        .executes(ctx -> setConfigDefaultAmmoLevel(ctx.getSource(),
-                                                IntegerArgumentType.getInteger(ctx, "level")))
+                                        .executes(ctx -> setConfigInt(ctx.getSource(), "defaultammolevel",
+                                                IntegerArgumentType.getInteger(ctx, "level"),
+                                                ModConfig.COMMON.default_bullet_level))
                                 )
                         )
-                        
-                        // defaultammoboxlevel <level>
                         .then(Commands.literal("defaultammoboxlevel")
                                 .then(Commands.argument("level", IntegerArgumentType.integer(-1, 7))
-                                        .executes(ctx -> setConfigDefaultAmmoBoxLevel(ctx.getSource(),
-                                                IntegerArgumentType.getInteger(ctx, "level")))
+                                        .executes(ctx -> setConfigInt(ctx.getSource(), "defaultammoboxlevel",
+                                                IntegerArgumentType.getInteger(ctx, "level"),
+                                                ModConfig.COMMON.default_ammo_box_level))
                                 )
                         )
-                        
-                        // defaultcreativelevel <level>
                         .then(Commands.literal("defaultcreativelevel")
                                 .then(Commands.argument("level", IntegerArgumentType.integer(-1, 7))
-                                        .executes(ctx -> setConfigDefaultCreativeLevel(ctx.getSource(),
-                                                IntegerArgumentType.getInteger(ctx, "level")))
+                                        .executes(ctx -> setConfigInt(ctx.getSource(), "defaultcreativelevel",
+                                                IntegerArgumentType.getInteger(ctx, "level"),
+                                                ModConfig.COMMON.default_creative_level))
                                 )
                         )
-                        
-                        // autosetarmor <true/false>
                         .then(Commands.literal("autosetarmor")
                                 .then(Commands.argument("enabled", BoolArgumentType.bool())
-                                        .executes(ctx -> setConfigAutoSetArmor(ctx.getSource(),
-                                                BoolArgumentType.getBool(ctx, "enabled")))
+                                        .executes(ctx -> setConfigBool(ctx.getSource(), "autosetarmor",
+                                                BoolArgumentType.getBool(ctx, "enabled"),
+                                                ModConfig.COMMON.auto_set_armor_rarity))
                                 )
                         )
-                        
-                        // defaultammotext <level> <text>
                         .then(Commands.literal("defaultammotext")
                                 .then(Commands.argument("level", IntegerArgumentType.integer(1, 7))
                                         .then(Commands.argument("text", StringArgumentType.greedyString())
-                                                .executes(ctx -> setConfigDefaultAmmoText(ctx.getSource(),
+                                                .executes(ctx -> setConfigAmmoText(ctx.getSource(),
                                                         IntegerArgumentType.getInteger(ctx, "level"),
                                                         StringArgumentType.getString(ctx, "text")))
                                         )
                                 )
                         )
-                        
-                        // defaultammocolor <level> <RGB>
                         .then(Commands.literal("defaultammocolor")
                                 .then(Commands.argument("level", IntegerArgumentType.integer(1, 7))
                                         .then(Commands.argument("color", IntegerArgumentType.integer(0, 0xFFFFFF))
-                                                .executes(ctx -> setConfigDefaultAmmoColor(ctx.getSource(),
+                                                .executes(ctx -> setConfigAmmoColor(ctx.getSource(),
                                                         IntegerArgumentType.getInteger(ctx, "level"),
                                                         IntegerArgumentType.getInteger(ctx, "color")))
                                         )
                                 )
                         )
-                        
-                        // attackdamage <ammolevel> <armorlevel> <point>
                         .then(Commands.literal("attackdamage")
                                 .then(Commands.argument("ammoLevel", IntegerArgumentType.integer(1, 7))
                                         .then(Commands.argument("armorLevel", IntegerArgumentType.integer(1, 6))
                                                 .then(Commands.argument("point", DoubleArgumentType.doubleArg(0.0, 10.0))
-                                                        .executes(ctx -> setConfigAttackDamage(ctx.getSource(),
+                                                        .executes(ctx -> setConfigMatrix(ctx.getSource(),
                                                                 IntegerArgumentType.getInteger(ctx, "ammoLevel"),
                                                                 IntegerArgumentType.getInteger(ctx, "armorLevel"),
-                                                                DoubleArgumentType.getDouble(ctx, "point")))
+                                                                DoubleArgumentType.getDouble(ctx, "point"),
+                                                                ModConfig.COMMON.attackDamageMatrix,
+                                                                "attackdamage"))
                                                 )
                                         )
                                 )
                         )
-                        
-                        // breakfielddamage <ammolevel> <armorlevel> <point>
                         .then(Commands.literal("breakfielddamage")
                                 .then(Commands.argument("ammoLevel", IntegerArgumentType.integer(1, 7))
                                         .then(Commands.argument("armorLevel", IntegerArgumentType.integer(1, 6))
                                                 .then(Commands.argument("point", DoubleArgumentType.doubleArg(0.0, 10.0))
-                                                        .executes(ctx -> setConfigBreakArmorDamage(ctx.getSource(),
+                                                        .executes(ctx -> setConfigMatrix(ctx.getSource(),
                                                                 IntegerArgumentType.getInteger(ctx, "ammoLevel"),
                                                                 IntegerArgumentType.getInteger(ctx, "armorLevel"),
-                                                                DoubleArgumentType.getDouble(ctx, "point")))
+                                                                DoubleArgumentType.getDouble(ctx, "point"),
+                                                                ModConfig.COMMON.breakArmorDamageMatrix,
+                                                                "breakfielddamage"))
                                                 )
                                         )
                                 )
                         )
-                        
-                        // fielddamage <ammolevel> <armorlevel> <point>
                         .then(Commands.literal("fielddamage")
                                 .then(Commands.argument("ammoLevel", IntegerArgumentType.integer(1, 7))
                                         .then(Commands.argument("armorLevel", IntegerArgumentType.integer(1, 6))
                                                 .then(Commands.argument("point", DoubleArgumentType.doubleArg(0.0, 10.0))
-                                                        .executes(ctx -> setConfigArmorDamage(ctx.getSource(),
+                                                        .executes(ctx -> setConfigMatrix(ctx.getSource(),
                                                                 IntegerArgumentType.getInteger(ctx, "ammoLevel"),
                                                                 IntegerArgumentType.getInteger(ctx, "armorLevel"),
-                                                                DoubleArgumentType.getDouble(ctx, "point")))
+                                                                DoubleArgumentType.getDouble(ctx, "point"),
+                                                                ModConfig.COMMON.armorDamageMatrix,
+                                                                "fielddamage"))
                                                 )
                                         )
                                 )
                         )
                 )
-                
-                // /oneshot creativeammoboxlevel <level>
+
                 .then(Commands.literal("creativeammoboxlevel")
                         .then(Commands.argument("level", IntegerArgumentType.integer(-1, 7))
-                                .executes(ctx -> setCreativeAmmoBoxLevel(ctx.getSource(),
-                                        IntegerArgumentType.getInteger(ctx, "level")))
+                                .executes(ctx -> notImplemented(ctx.getSource()))
                         )
                 )
-                
-                // /oneshot creativeammolevel <level>
+
                 .then(Commands.literal("creativeammolevel")
                         .then(Commands.argument("level", IntegerArgumentType.integer(-1, 7))
-                                .executes(ctx -> setCreativeAmmoLevel(ctx.getSource(),
-                                        IntegerArgumentType.getInteger(ctx, "level")))
+                                .executes(ctx -> notImplemented(ctx.getSource()))
                         )
                 )
         );
-        
-        // 保留兼容旧命令
+
         dispatcher.register(Commands.literal("oneshot")
                 .requires(source -> source.hasPermission(3))
                 .then(Commands.literal("setammograde")
@@ -191,7 +165,7 @@ public final class OneShotCommands {
         try {
             player = source.getPlayerOrException();
         } catch (Exception e) {
-            source.sendFailure(Component.literal("This command can only be used by a player!"));
+            source.sendFailure(Component.translatable("command.oneshot.player_only"));
             return 0;
         }
 
@@ -201,11 +175,11 @@ public final class OneShotCommands {
         switch (mode.toLowerCase()) {
             case "hand" -> {
                 if (mainHand.isEmpty()) {
-                    source.sendFailure(Component.literal("You are not holding any item!"));
+                    source.sendFailure(Component.translatable("command.oneshot.no_item_held"));
                     return 0;
                 }
                 if (!BulletLevelHandler.is_tacz_ammo(mainHand)) {
-                    source.sendFailure(Component.literal("The held item is not a TACZ ammo item!"));
+                    source.sendFailure(Component.translatable("command.oneshot.not_tacz_ammo"));
                     return 0;
                 }
                 BulletLevelUtil.set_bullet_level(mainHand, level);
@@ -214,11 +188,11 @@ public final class OneShotCommands {
             }
             case "kind" -> {
                 if (mainHand.isEmpty() || !BulletLevelHandler.is_tacz_ammo(mainHand)) {
-                    source.sendFailure(Component.literal("You must hold a TACZ ammo item for 'kind' mode!"));
+                    source.sendFailure(Component.translatable("command.oneshot.must_hold_tacz_ammo_for_kind"));
                     return 0;
                 }
                 String targetId = mainHand.getItem().builtInRegistryHolder().key().location().toString();
-                
+
                 for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                     ItemStack stack = player.getInventory().getItem(i);
                     if (!stack.isEmpty() && BulletLevelHandler.is_tacz_ammo(stack)) {
@@ -242,17 +216,18 @@ public final class OneShotCommands {
                 }
             }
             default -> {
-                source.sendFailure(Component.literal("Invalid mode! Use: hand, kind, or all"));
+                source.sendFailure(Component.translatable("command.oneshot.invalid_mode"));
                 return 0;
             }
         }
 
-        final int finalCount = count;
         if (count > 0) {
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set ammo level to Lv.%d for %d items", level, finalCount)), true);
+            source.sendSuccess(() -> Component.translatable(
+                    "command.oneshot.set_ammo_level_success",
+                    String.valueOf(count),
+                    String.valueOf(level)), true);
         } else {
-            source.sendFailure(Component.literal("No ammo items found to modify!"));
+            source.sendFailure(Component.translatable("command.oneshot.no_ammo_found"));
         }
         return count > 0 ? 1 : 0;
     }
@@ -263,154 +238,72 @@ public final class OneShotCommands {
         }
     }
 
-    private static int setConfigDefaultAmmoLevel(CommandSourceStack source, int level) {
-        try {
-            com.aquavie.oneshot.config.ModConfig.COMMON.default_bullet_level.set(level);
-            saveConfig();
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set defaultammolevel to %d. Restart required!", level)), true);
-            return 1;
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
-            return 0;
-        }
+    private static int setConfigInt(CommandSourceStack source, String configName, int value,
+                                    net.minecraftforge.common.ForgeConfigSpec.IntValue configField) {
+        configField.set(value);
+        source.sendSuccess(() -> Component.translatable("command.oneshot.set_config_value",
+                configName, String.valueOf(value)), true);
+        return 1;
     }
 
-    private static int setConfigDefaultAmmoBoxLevel(CommandSourceStack source, int level) {
-        try {
-            com.aquavie.oneshot.config.ModConfig.COMMON.default_ammo_box_level.set(level);
-            saveConfig();
-            String display = level <= 0 ? "follows defaultammolevel" : String.valueOf(level);
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set defaultammoboxlevel to %s. Restart required!", display)), true);
-            return 1;
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
-            return 0;
-        }
+    private static int setConfigBool(CommandSourceStack source, String configName, boolean value,
+                                     net.minecraftforge.common.ForgeConfigSpec.BooleanValue configField) {
+        configField.set(value);
+        source.sendSuccess(() -> Component.translatable("command.oneshot.set_config_value",
+                configName, String.valueOf(value)), true);
+        return 1;
     }
 
-    private static int setConfigDefaultCreativeLevel(CommandSourceStack source, int level) {
+    private static int setConfigAmmoText(CommandSourceStack source, int level, String text) {
         try {
-            com.aquavie.oneshot.config.ModConfig.COMMON.default_creative_level.set(level);
-            saveConfig();
-            String display = level <= 0 ? "follows defaultammolevel" : String.valueOf(level);
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set defaultcreativelevel to %s. Restart required!", display)), true);
-            return 1;
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
-            return 0;
-        }
-    }
-
-    private static int setConfigAutoSetArmor(CommandSourceStack source, boolean enabled) {
-        try {
-            com.aquavie.oneshot.config.ModConfig.COMMON.auto_set_armor_rarity.set(enabled);
-            saveConfig();
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set autosetarmor to %b. Restart required!", enabled)), true);
-            return 1;
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
-            return 0;
-        }
-    }
-
-    private static int setConfigDefaultAmmoText(CommandSourceStack source, int level, String text) {
-        try {
-            List<String> texts = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.bullet_default_texts.get());
+            List<String> texts = new ArrayList<>(ModConfig.COMMON.bullet_default_texts.get());
             texts.set(level - 1, text);
-            com.aquavie.oneshot.config.ModConfig.COMMON.bullet_default_texts.set(texts);
-            saveConfig();
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set defaultammotext for Lv.%d to '%s'. Restart required!", level, text)), true);
+            ModConfig.COMMON.bullet_default_texts.set(texts);
+            source.sendSuccess(() -> Component.translatable("command.oneshot.set_config_value",
+                    "defaultammotext Lv." + level, text), true);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
+            source.sendFailure(Component.translatable("command.oneshot.config_save_failed", e.getMessage()));
             return 0;
         }
     }
 
-    private static int setConfigDefaultAmmoColor(CommandSourceStack source, int level, int rgb) {
+    private static int setConfigAmmoColor(CommandSourceStack source, int level, int rgb) {
         try {
             int argb = 0xFF000000 | rgb;
-            List<Integer> colors = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.bullet_colors.get());
+            List<Integer> colors = new ArrayList<>(ModConfig.COMMON.bullet_colors.get());
             colors.set(level - 1, argb);
-            com.aquavie.oneshot.config.ModConfig.COMMON.bullet_colors.set(colors);
-            saveConfig();
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set defaultammocolor for Lv.%d to #%06X. Restart required!", level, rgb)), true);
+            ModConfig.COMMON.bullet_colors.set(colors);
+            source.sendSuccess(() -> Component.translatable("command.oneshot.set_config_value",
+                    "defaultammocolor Lv." + level, String.format("#%06X", rgb)), true);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
+            source.sendFailure(Component.translatable("command.oneshot.config_save_failed", e.getMessage()));
             return 0;
         }
     }
 
-    private static int setConfigAttackDamage(CommandSourceStack source, int ammoLevel, int armorLevel, double point) {
+    private static int setConfigMatrix(CommandSourceStack source, int ammoLevel, int armorLevel,
+                                       double point,
+                                       net.minecraftforge.common.ForgeConfigSpec.ConfigValue<List<Double>> matrixField,
+                                       String configName) {
         try {
-            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.attackDamageMatrix.get());
+            List<Double> matrix = new ArrayList<>(matrixField.get());
             int index = (ammoLevel - 1) * 6 + (armorLevel - 1);
             matrix.set(index, point);
-            com.aquavie.oneshot.config.ModConfig.COMMON.attackDamageMatrix.set(matrix);
-            saveConfig();
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set attackdamage for ammoLv%d vs armorLv%d to %.2f. Restart required!",
-                            ammoLevel, armorLevel, point)), true);
+            matrixField.set(matrix);
+            String desc = String.format("%s ammoLv%d-armorLv%d", configName, ammoLevel, armorLevel);
+            source.sendSuccess(() -> Component.translatable("command.oneshot.set_config_value",
+                    desc, String.format("%.2f", point)), true);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
+            source.sendFailure(Component.translatable("command.oneshot.config_save_failed", e.getMessage()));
             return 0;
         }
     }
 
-    private static int setConfigBreakArmorDamage(CommandSourceStack source, int ammoLevel, int armorLevel, double point) {
-        try {
-            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.breakArmorDamageMatrix.get());
-            int index = (ammoLevel - 1) * 6 + (armorLevel - 1);
-            matrix.set(index, point);
-            com.aquavie.oneshot.config.ModConfig.COMMON.breakArmorDamageMatrix.set(matrix);
-            saveConfig();
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set breakfielddamage for ammoLv%d vs armorLv%d to %.2f. Restart required!",
-                            ammoLevel, armorLevel, point)), true);
-            return 1;
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
-            return 0;
-        }
-    }
-
-    private static int setConfigArmorDamage(CommandSourceStack source, int ammoLevel, int armorLevel, double point) {
-        try {
-            List<Double> matrix = new ArrayList<>(com.aquavie.oneshot.config.ModConfig.COMMON.armorDamageMatrix.get());
-            int index = (ammoLevel - 1) * 6 + (armorLevel - 1);
-            matrix.set(index, point);
-            com.aquavie.oneshot.config.ModConfig.COMMON.armorDamageMatrix.set(matrix);
-            saveConfig();
-            source.sendSuccess(() -> Component.literal(
-                    String.format("Set fielddamage for ammoLv%d vs armorLv%d to %.2f. Restart required!",
-                            ammoLevel, armorLevel, point)), true);
-            return 1;
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to save config: " + e.getMessage()));
-            return 0;
-        }
-    }
-
-    private static int setCreativeAmmoBoxLevel(CommandSourceStack source, int level) {
-        source.sendFailure(Component.literal("creativeammoboxlevel requires mod integration - not implemented yet"));
+    private static int notImplemented(CommandSourceStack source) {
+        source.sendFailure(Component.translatable("command.oneshot.not_implemented"));
         return 0;
-    }
-
-    private static int setCreativeAmmoLevel(CommandSourceStack source, int level) {
-        source.sendFailure(Component.literal("creativeammolevel requires mod integration - not implemented yet"));
-        return 0;
-    }
-
-    private static void saveConfig() throws IOException {
-        // Config saving handled by Forge automatically
-        // Keeping this method as a placeholder for future use
     }
 }

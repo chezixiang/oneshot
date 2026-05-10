@@ -79,11 +79,11 @@ public final class BulletLevelHandler {
                 BulletLevelUtil.set_bullet_level(stack, ModConfig.COMMON.default_bullet_level.get());
             }
             if (RarityIntegration.is_rarity_mod_loaded() && BulletLevelUtil.has_bullet_level(stack)) {
-                boolean should_apply = !stack.getOrCreateTag().contains("OneShot.RarityApplied")
+                boolean should_apply = !stack.getOrCreateTag().contains(ModConstants.NBT_RARITY_APPLIED)
                         || grades_just_registered;
                 if (should_apply) {
                     RarityIntegration.apply_rarity_to_bullet(stack);
-                    stack.getOrCreateTag().putBoolean("OneShot.RarityApplied", true);
+                    stack.getOrCreateTag().putBoolean(ModConstants.NBT_RARITY_APPLIED, true);
                 }
             }
         }
@@ -92,11 +92,11 @@ public final class BulletLevelHandler {
             for (EquipmentSlot slot : ModConstants.ARMOR_SLOTS) {
                 ItemStack armor_stack = player.getItemBySlot(slot);
                 if (!armor_stack.isEmpty() && RarityIntegration.has_armor_level_enchantment(armor_stack)) {
-                    boolean should_apply = !armor_stack.getOrCreateTag().contains("OneShot.RarityApplied")
+                    boolean should_apply = !armor_stack.getOrCreateTag().contains(ModConstants.NBT_RARITY_APPLIED)
                             || grades_just_registered;
                     if (should_apply) {
                         RarityIntegration.apply_rarity_to_armor(armor_stack);
-                        armor_stack.getOrCreateTag().putBoolean("OneShot.RarityApplied", true);
+                        armor_stack.getOrCreateTag().putBoolean(ModConstants.NBT_RARITY_APPLIED, true);
                     }
                 }
             }

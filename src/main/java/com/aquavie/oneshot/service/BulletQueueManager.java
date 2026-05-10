@@ -4,83 +4,109 @@ import com.aquavie.oneshot.ModConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BulletQueueManager {
-    private final Map<UUID, Deque<Integer>> bulletQueues = new HashMap<>();
-    private final Map<UUID, Long> lastAccessTimes = new HashMap<>();
-    private long lastCleanupTime = 0;
-    
+    private final Map<UUID, Deque<Integer>> bulletQueues = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastAccessTimes = new ConcurrentHashMap<>();
+    private volatile long lastCleanupTime = 0;
+
     private static final long CLEANUP_INTERVAL_MS = 60000;
     private static final long CLEANUP_THRESHOLD_MS = 300000;
-    
-    public Deque<Integer> getBulletQueue(UUID playerId) {
+
+    public UUID createBulletQueue() {
         cleanupIfNeeded();
-        lastAccessTimes.put(playerId, System.currentTimeMillis());
-        return bulletQueues.computeIfAbsent(playerId, k -> new ArrayDeque<>());
+        UUID queueId = UUID.randomUUID();
+        bulletQueues.put(queueId, new ArrayDeque<>());
+        lastAccessTimes.put(queueId, System.currentTimeMillis());
+        return queueId;
     }
-    
-    public void saveBulletQueue(ItemStack gunStack, Deque<Integer> queue) {
-        if (queue == null || queue.isEmpty()) {
-            removeBulletQueueFromNBT(gunStack);
-            return;
-        }
-        
-        CompoundTag queueTag = new CompoundTag();
-        int index = 0;
-        for (int level : queue) {
-            queueTag.putInt("lv" + index, level);
-            index++;
-        }
-        queueTag.putInt("size", queue.size());
-        gunStack.getOrCreateTag().put(ModConstants.NBT_BULLET_QUEUE, queueTag);
+
+    public Deque<Integer> getBulletQueue(UUID queueId) {
+        cleanupIfNeeded();
+        lastAccessTimes.put(queueId, System.currentTimeMillis());
+        return bulletQueues.computeIfAbsent(queueId, k -> new ArrayDeque<>());
     }
-    
-    public Deque<Integer> restoreBulletQueue(ItemStack gunStack) {
+
+    public void removeBulletQueue(UUID queueId) {
+        bulletQueues.remove(queueId);
+        lastAccessTimes.remove(queueId);
+    }
+
+    public UUID readQueueId(ItemStack gunStack) {
         CompoundTag tag = gunStack.getTag();
-        if (tag == null || !tag.contains(ModConstants.NBT_BULLET_QUEUE, CompoundTag.TAG_COMPOUND)) {
+        if (tag == null || !tag.contains(ModConstants.NBT_QUEUE_ID, CompoundTag.TAG_STRING)) {
             return null;
         }
-        
-        CompoundTag queueTag = tag.getCompound(ModConstants.NBT_BULLET_QUEUE);
-        int size = queueTag.getInt("size");
-        if (size <= 0 || size > ModConstants.MAX_QUEUE_SIZE) {
+        try {
+            return UUID.fromString(tag.getString(ModConstants.NBT_QUEUE_ID));
+        } catch (IllegalArgumentException e) {
+            tag.remove(ModConstants.NBT_QUEUE_ID);
             return null;
         }
-        
-        Deque<Integer> restored = new ArrayDeque<>();
-        for (int i = 0; i < size; i++) {
-            if (queueTag.contains("lv" + i, CompoundTag.TAG_INT)) {
-                restored.addLast(queueTag.getInt("lv" + i));
-            } else {
-                return null;
+    }
+
+    public void writeQueueId(ItemStack gunStack, UUID queueId) {
+        gunStack.getOrCreateTag().putString(ModConstants.NBT_QUEUE_ID, queueId.toString());
+    }
+
+    public UUID ensureQueueId(ItemStack gunStack) {
+        UUID existing = readQueueId(gunStack);
+        if (existing != null) {
+            return existing;
+        }
+        UUID newId = createBulletQueue();
+        writeQueueId(gunStack, newId);
+        return newId;
+    }
+
+    public static boolean updateMixedLevelTag(ItemStack gunStack, Deque<Integer> queue) {
+        boolean hasMixed = false;
+        if (queue != null && queue.size() > 1) {
+            int first = queue.peekFirst();
+            for (int level : queue) {
+                if (level != first) {
+                    hasMixed = true;
+                    break;
+                }
             }
         }
-        return restored;
-    }
-    
-    private void removeBulletQueueFromNBT(ItemStack gunStack) {
-        CompoundTag tag = gunStack.getTag();
-        if (tag != null) {
-            tag.remove(ModConstants.NBT_BULLET_QUEUE);
+        if (hasMixed) {
+            gunStack.getOrCreateTag().putBoolean(ModConstants.NBT_HAS_MIXED, true);
+        } else {
+            CompoundTag tag = gunStack.getTag();
+            if (tag != null) {
+                tag.remove(ModConstants.NBT_HAS_MIXED);
+            }
         }
+        return hasMixed;
     }
-    
+
     private void cleanupIfNeeded() {
         long now = System.currentTimeMillis();
         if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
             return;
         }
-        lastCleanupTime = now;
-        
-        long threshold = now - CLEANUP_THRESHOLD_MS;
-        Iterator<Map.Entry<UUID, Long>> iterator = lastAccessTimes.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<UUID, Long> entry = iterator.next();
-            if (entry.getValue() < threshold) {
-                UUID uuid = entry.getKey();
-                iterator.remove();
-                bulletQueues.remove(uuid);
+        synchronized (this) {
+            if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
+                return;
+            }
+            lastCleanupTime = now;
+
+            long threshold = now - CLEANUP_THRESHOLD_MS;
+            Iterator<Map.Entry<UUID, Long>> iterator = lastAccessTimes.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<UUID, Long> entry = iterator.next();
+                if (entry.getValue() < threshold) {
+                    UUID uuid = entry.getKey();
+                    iterator.remove();
+                    bulletQueues.remove(uuid);
+                }
             }
         }
     }
