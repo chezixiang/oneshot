@@ -1,6 +1,7 @@
 package com.aquavie.oneshot.service;
 
 import com.aquavie.oneshot.ModConstants;
+import com.aquavie.oneshot.OneShotMod;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 
@@ -46,6 +47,7 @@ public final class BulletQueueManager {
         try {
             return UUID.fromString(tag.getString(ModConstants.NBT_QUEUE_ID));
         } catch (IllegalArgumentException e) {
+            OneShotMod.LOGGER.warn("Invalid queue ID in NBT: {}", tag.getString(ModConstants.NBT_QUEUE_ID));
             tag.remove(ModConstants.NBT_QUEUE_ID);
             return null;
         }

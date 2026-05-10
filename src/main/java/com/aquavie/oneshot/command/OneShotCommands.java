@@ -221,15 +221,16 @@ public final class OneShotCommands {
             }
         }
 
-        if (count > 0) {
+        final int finalCount = count;
+        if (finalCount > 0) {
             source.sendSuccess(() -> Component.translatable(
                     "command.oneshot.set_ammo_level_success",
-                    String.valueOf(count),
+                    String.valueOf(finalCount),
                     String.valueOf(level)), true);
         } else {
             source.sendFailure(Component.translatable("command.oneshot.no_ammo_found"));
         }
-        return count > 0 ? 1 : 0;
+        return finalCount > 0 ? 1 : 0;
     }
 
     private static void applyRarityIfNeeded(ItemStack stack) {
